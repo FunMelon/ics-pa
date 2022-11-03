@@ -2,6 +2,8 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <stdio.h>
+#include "memory/paddr.h"
 #include "sdb.h"
 #include "utils.h"
 
@@ -39,6 +41,40 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args) {
+  uint n;
+  sscanf(args, "%d", &n);
+  cpu_exec(n);
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  if (*args == 'r') {
+    isa_reg_display();
+  } else {
+    // TODO: 打印断点
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg != NULL) {
+    uint n;
+    sscanf(arg, "%d", &n);
+    char *arg = strtok(NULL, " ");
+    if (arg != NULL) {
+      uint startPos;
+      sscanf(arg, "%X", &startPos);
+
+      for (size_t i = 0; i < n; ++i) {
+        printf("%#010X\n", paddr_read(startPos + i * 4, 4));
+      }
+    }
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -49,7 +85,9 @@ static struct {
   { "help", "Display informations about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  {"si", "Single step N instructions", cmd_si},
+  {"info", "Print the information of the register", cmd_info},
+  {"x", "Scan memory", cmd_x},
   /* TODO: Add more commands */
 
 };
