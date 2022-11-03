@@ -1,4 +1,5 @@
 #include <isa.h>
+#include <stdio.h>
 #include "local-include/reg.h"
 
 const char *regs[] = {
@@ -9,6 +10,11 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
+  for (size_t i = 0; i < 32; ++i) {
+    printf("%3s: %#010X ", regs[i], cpu.gpr[i]._32);
+    if (!((i + 1) % 4)) putchar('\n');
+  }
+  printf("%3s: %#010X\n", "pc", cpu.pc);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
