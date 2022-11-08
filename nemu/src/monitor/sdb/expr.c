@@ -9,7 +9,7 @@
 #include <limits.h>
 #include <regex.h>
 
-#define NULL_NUM INT_MAX
+#define NULL_NUM 0x80000000
 #define priority(op) (op.type / 10) // 获取优先级
 
 enum {
@@ -20,13 +20,21 @@ enum {
   TK_SUB = 11,   // 减
   TK_ASTER = 20, // 乘，取地址
   TK_DIV = 21,   // 除
-  TK_HEX = 30,   // 十六进制
-  TK_DEC = 31,   // 十进制
-  TK_REG = 32,   // 寄存器
+
+  TK_EQ = 30, // 监视点
+  TK_LT = 31, // 小于号
+  TK_MT = 32, // 大于号
+
+  TK_HEX = 40, // 十六进制
+  TK_DEC = 41, // 十进制
+  TK_REG = 42, // 寄存器
+
   // 不可比运算符
-  TK_EQ = 50,  // 断点
-  TK_LBT = 51, // 左括号
-  TK_RBT = 52, // 右括号
+  TK_LBT = 61, // 左括号
+  TK_RBT = 62, // 右括号
+
+  // 暂时保留
+  TK_AND, // 与
 };
 
 static struct rule {
@@ -41,6 +49,9 @@ static struct rule {
     {" +", TK_NOTYPE},               // spaces
     {"\\+", TK_PLUS},                // plus
     {"==", TK_EQ},                   // equal
+    {"<", TK_LT},                    // less than
+    {">", TK_MT},                    // more than
+    {"&&", TK_AND},                  // and
     {"-", TK_SUB},                   // 减号
     {"\\*", TK_ASTER},               // 乘号或解引用号
     {"/", TK_DIV},                   // 除号
@@ -94,8 +105,8 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s", i,
-            rules[i].regex, position, substr_len, substr_len, substr_start);
+        // Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s", i,
+        //     rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
@@ -136,8 +147,11 @@ static bool make_token(char *e) {
 
 // 检查表达式是否在整括号内
 // 1.括号要匹配，2.最外层的括号要匹配
-static bool check_parentheses(size_t p, size_t q) {
+// 返回值为0，不合法的括号，1不符合BNF的括号，2符号BNF的括号
+static int check_parentheses(size_t p, size_t q) {
   // 检查是否含有最外层括号
+  bool isLegal = true;
+  bool isBNF = true;
   if (!(tokens[p].type == TK_LBT && tokens[q].type == TK_RBT))
     return false;
   // 检查括号是否匹配
@@ -148,11 +162,14 @@ static bool check_parentheses(size_t p, size_t q) {
     else if (tokens[p].type == TK_RBT)
       --n;
 
-    if (n <= 0)
-      return false;
+    if (n < 0)
+      isLegal = false;
+    else if (n == 0)
+      isBNF = false;
     ++p;
   }
-  return true;
+  // Log("%d %d", isBNF, isLegal);
+  return isBNF ? 2 : (isLegal ? 1 : 0);
 }
 
 // 寻找主运算符
@@ -187,8 +204,10 @@ static size_t findMainOp(size_t p, size_t q) {
     }
   }
   // Log("找到的主运算符为: %d", (int)op);
-  assert(tokens[op].type == TK_PLUS || tokens[op].type == TK_SUB ||
-         tokens[op].type == TK_ASTER || tokens[op].type == TK_DIV);
+  // assert(tokens[op].type == TK_PLUS || tokens[op].type == TK_SUB ||
+  //        tokens[op].type == TK_MT || tokens[op].type == TK_LT ||
+  //        tokens[op].type == TK_EQ || tokens[op].type == TK_ASTER ||
+  //        tokens[op].type == TK_DIV);
   return op;
 }
 
@@ -215,14 +234,9 @@ static word_t eval(size_t p, size_t q, bool *success) {
     return NULL_NUM;
   } else if (p == q) {
     return toNum(p, success);
-  } else if (check_parentheses(p, q)) {
+  } else if (check_parentheses(p, q) == 2) { // BNF
     return eval(p + 1, q - 1, success);
-  } else {
-    if (tokens[p].type == TK_LBT && tokens[q].type == TK_RBT) {
-      *success = false;
-      return NULL_NUM;
-    }
-    // TODO： 补充不符合BNF表达式的内容
+  } else { // 也许合法但不匹配
     size_t op = findMainOp(p, q);
     word_t val1 = eval(p, op - 1, success);
     word_t val2 = eval(op + 1, q, success);
@@ -230,13 +244,11 @@ static word_t eval(size_t p, size_t q, bool *success) {
     switch (tokens[op].type) {
     case TK_PLUS:
       return val1 + val2;
-      break;
     case TK_SUB:
       if (val1 == NULL_NUM)
         return -val2;
       else
         return val1 - val2;
-      break;
     case TK_ASTER:
       if (val1 == NULL_NUM) { // 取地址符，默认取32位
         // Log("待取地址的基址为: %d", val2);
@@ -244,14 +256,14 @@ static word_t eval(size_t p, size_t q, bool *success) {
       } else { // 乘号
         return val1 * val2;
       }
-      break;
     case TK_DIV:
       return val1 / val2;
-      break;
     case TK_EQ:
-      panic("断点调试未启用");
-      // TODO: 断点
-      break;
+      return val1 == val2;
+    case TK_LT:
+      return val1 < val2;
+    case TK_MT:
+      return val1 > val2;
     default:
       panic("错误的操作符: %d", tokens[op].type);
       break;
@@ -270,6 +282,6 @@ word_t expr(char *e, bool *success) {
   /* TODO: Insert codes to evaluate the expression. */
   word_t i = eval(0, nr_token - 1, success);
 
-  Log("表达式的结果为 %#X", i);
+  // Log("表达式的结果为 %#X", i);
   return i;
 }
