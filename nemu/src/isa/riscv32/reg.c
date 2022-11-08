@@ -8,12 +8,14 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
 void isa_reg_display() {
+  printf("\033[32m");
   for (size_t i = 0; i < 32; ++i) {
     printf("%3s: %#010X %12d ", regs[i], cpu.gpr[i]._32, cpu.gpr[i]._32);
     if (!((i + 1) % 4))
       putchar('\n');
   }
   printf("%3s: %#010X %12d \n", "pc", cpu.pc, cpu.pc);
+  printf("\033[0m");
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
