@@ -91,12 +91,15 @@ void print_watchpoint() {
 }
 
 // 检查断点信息
-WP *check_points() {
+bool check_points() {
+  bool isTriggered = false;
   bool success;
   for (WP *ptr = head; ptr != NULL; ptr = ptr->next) {
     word_t res = expr(ptr->expr, &success);
-    if (res == 1)
-      return ptr;
+    if (res == 1){
+      printf("\033[31m[No: %5d]: %s was triggered\n \033[0m", ptr->NO, ptr->expr);
+      isTriggered = true;
+    }
   }
-  return NULL;
+  return isTriggered;
 }

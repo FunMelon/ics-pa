@@ -3,7 +3,6 @@
 #include <cpu/difftest.h>
 #include <isa-all-instr.h>
 #include <locale.h>
-#include "../monitor/sdb/sdb.h"
 #include "utils.h"
 
 /* The assembly code of instructions executed is only output to the screen
@@ -23,6 +22,8 @@ rtlreg_t tmp_reg[4];
 void device_update();
 void fetch_decode(Decode *s, vaddr_t pc);
 
+bool check_points();  // 编译器
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) log_write("%s\n", _this->logbuf);
@@ -31,11 +32,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 
 #ifdef CONFIG_WATCHPOINT
-  WP *ptr = check_points();
-  if (ptr) {
+  if (check_points())
     nemu_state.state = NEMU_STOP;
-    printf("\033[31m[No: %5d]: %s was triggered\n \033[0m", ptr->NO, ptr->expr);
-  } 
 #endif
 }
 

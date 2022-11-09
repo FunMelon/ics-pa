@@ -20,6 +20,6 @@ void free_wp(int no);
 
 void print_watchpoint();
 
-WP *check_points();
+bool check_points();
 
 #endif
