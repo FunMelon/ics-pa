@@ -3,8 +3,8 @@
 #include <cpu/difftest.h>
 #include <isa-all-instr.h>
 #include <locale.h>
-#include "../monitor/sdb/sdb.h"
 #include "utils.h"
+// #include "../monitor/sdb/sdb.h"
 
 /* The assembly code of instructions executed is only output to the screen
  * when the number of instructions executed is less than this value.
@@ -31,11 +31,8 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 
 #ifdef CONFIG_WATCHPOINT
-  WP *ptr = check_points();
-  if (ptr) {
-    nemu_state.state = NEMU_STOP;
-    printf("\033[31m[No: %5d]: %s was triggered\n \033[0m", ptr->NO, ptr->expr);
-  } 
+  // if (check_points())
+  //   nemu_state.state = NEMU_STOP;
 #endif
 }
 
